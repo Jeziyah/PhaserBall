@@ -21,6 +21,14 @@ const config: Phaser.Types.Core.GameConfig = {
     },
     parent: 'game-container',
     backgroundColor: '#028af8',
+    physics: {
+        default: 'matter',
+        matter: {
+            // Matter.js specific configuration options
+            gravity: { x: 0, y: 0.2 }, // Customize gravity
+            debug: true // Enable debug rendering
+        }
+    },
     scene: [
         Boot,
         Preloader,
