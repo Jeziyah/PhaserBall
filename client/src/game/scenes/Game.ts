@@ -1,6 +1,6 @@
 import { EventBus } from "../EventBus";
 import { Scene } from "phaser";
-import { BodyType } from "matter";
+import { Body, BodyType } from "matter";
 
 export class Game extends Scene {
     camera: Phaser.Cameras.Scene2D.Camera;
@@ -9,9 +9,37 @@ export class Game extends Scene {
     constructor() {
         super("Game");
     }
+
+    private collisionData() {
+        const CATEGORY_WALL = 0x0001; //[0]
+        const CATEGORY_BALL = 0x0002; //[1]
+        const CATEGORY_FLIPPER = 0x0004; //[2]
+
+        const CATEGORY_FLIPPER_SUPPORT = 0x0005; //[6]
+        
+        
+        // Define collision masks for MatterJS Objects
+        const MASK_WALL = CATEGORY_BALL; // [3] Wall collides only with ball
+        const MASK_BALL = CATEGORY_WALL | CATEGORY_FLIPPER; // [4] Ball collides with wall and flipper
+        const MASK_FLIPPER = CATEGORY_BALL | CATEGORY_FLIPPER_SUPPORT; // [5] Flipper collides only with ball
+        
+        const MASK_FLIPPER_SUPPORT = CATEGORY_FLIPPER; // [7] Flippersupport collides only with flipper
+        return [
+            CATEGORY_WALL,
+            CATEGORY_BALL,
+            CATEGORY_FLIPPER,
+            MASK_WALL,
+            MASK_BALL,
+            MASK_FLIPPER,
+
+            CATEGORY_FLIPPER_SUPPORT,
+            MASK_FLIPPER_SUPPORT
+        ];
+    }
+
     private flipperData() {
         const flipperAngle: number = 30;
-        const flipperSize: number[] = [80, 20];
+        const flipperSize: number[] = [60, 15];
         const flipperOpen: number = 150;
         const flipSpeed: number = 5;
 
@@ -43,11 +71,14 @@ export class Game extends Scene {
             this.game.config.height as number
         );
 
+        const generateMap = this.generateMap();
+        const placeObstacles = this.placeObstacles();
+
         const flipperData = this.flipperData();
         const flippers = this.createFlippers();
 
         const flipperL = flippers[0].body as BodyType;
-        const flipperR = flippers[1];
+        const flipperR = flippers[1].body as BodyType;
 
         this.matter.world.add(flippers);
         //pinball ball
@@ -75,48 +106,37 @@ export class Game extends Scene {
                     fillOpacity: 0,
                     fillColor: 0xff0000,
                 },
+                collisionFilter: {
+                    category: this.collisionData()[1],
+                    mask: this.collisionData()[4],
+                },
             },
             8
         );
 
         bally.body = circleBody;
 
-        const circler = this.add.circle(100, 200, pinballSize, 0xffabff);
-        const bodys = this.matter.add.circle(100, 200, pinballSize);
+        const circler = this.add.circle(
+            (this.game.config.width as number) / 2,
+            200,
+            pinballSize,
+            0xffabff
+        );
+        const bodys = this.matter.add.circle(
+            (this.game.config.width as number) / 2,
+            200,
+            pinballSize,
+            {
+                collisionFilter: {
+                    category: this.collisionData()[1],
+                    mask: this.collisionData()[4],
+                },
+            }
+        );
         this.matter.add.gameObject(circler, bodys);
         this.matter.add.gameObject(bally, circleBody);
-        // console.log(flippersize[0], flippersize[1]);
-        //flipper left
-        // this.matter.world.disableGravity();
-
-        // spritePhysics = this.cache.json.get("sprites");
-        // console.log("menuutje: ", this.cache.json.get("sprites"));
-
-        // plane = this.matter.add.sprite(300, 360, "plane", "plane1.png", {
-        //     // shape: spritePhysics.plane,
-        // });
-        // // plane.play("fly");
-
-        // obstacle = this.matter.add.sprite(1100, 360, "obstacle", undefined, {
-        //     // shape: spritePhysics.obstacle,
-        // });
 
         EventBus.emit("current-scene-ready", this);
-        // const shades = Matter.Bodies.rectangle(
-        //     this.game.config.width as number,
-        //     this.game.config.height as number / 2,
-        //     this.game.config.width as number/2,
-        //     this.game.config.height as number/2,
-        //     {
-        //         isStatic: true,
-        //         isSensor: true,
-        //         render: {
-        //           fillStyle: 'pink'
-        //         },
-        //     },
-        // );
-
-        // this.matter.world.add(shades);
 
         if (this.input && this.input.keyboard) {
             const leftKey = this.input.keyboard.addKey(
@@ -126,82 +146,59 @@ export class Game extends Scene {
                 Phaser.Input.Keyboard.KeyCodes.D
             );
 
-            const flipperAngularVelocity = 0.1; // Adjust the angular velocity as needed
+            const flipperAngularVelocity = 25; // Adjust the angular velocity as needed
             if (leftKey && rightKey) {
                 console.log("Initialized both keys 'A' and 'D'.");
+            }else{
+                console.log("Initialized both keys 'A' and 'D'.");
+
             }
-            // Add event listeners to the keys to move the flippers
             leftKey.on("down", () => {
-                // this.matter.body.setAngularVelocity(
-                //     flipperL.body as BodyType,
-                //     -flipperAngularVelocity
-                // );
+                this.matter.body.setStatic(flipperL, false);
                 this.matter.body.applyForce(
                     flipperL,
-                    // -flipperAngularVelocity
                     { x: -flipperL.bounds.max.x / 2, y: 0 },
-                    { x: 0, y: flipperAngularVelocity } // Force vector
+                    { x: 0, y: flipperAngularVelocity } 
                 );
-                // flipper.setAngularVelocity(-yourAngularVelocity);
-                // flipperL.setAngle((this.flipperData()[0] as number) / 4);
-                // (flipperL as BodyType).setAngle(
-                //     this.flipperData()[2] as number
-                // );
-
-                // this.matter.body.setAngularVelocity(
-                //     flippers[2] as BodyType,
-                //     this.flipperData()[3] as number
-                // );
-                // Matter.Body.setAngularVelocity(flipperL as Matter.Body, -this.flipperData()[0] as number);
-                // console.log(
-                //     "activated left flipper, with angle: ",
-                //     flipperL.angle.toString()
-                // );
-                // console.log(flipperL.angle.toString());
+                this.printData(flipperL);
             });
+            
+            rightKey.on("down", () => {
+                this.matter.body.setStatic(flipperR, false);
+                this.matter.body.applyForce(
+                    flipperR,
+                    { x: -flipperR.bounds.max.x / 2, y: 0 },
+                    { x: 0, y: -flipperAngularVelocity } 
+                );
+                this.printData(flipperR);
+            });
+
             leftKey.on("up", () => {
                 this.matter.body.applyForce(
                     flipperL,
-                    // -flipperAngularVelocity
                     { x: -flipperL.bounds.max.x / 2, y: 0 },
-                    { x: 0, y: -flipperAngularVelocity } // Force vector
+                    { x: 0, y: -flipperAngularVelocity } 
                 );
-                // this.matter.body.setAngularVelocity(
-                //     flippers[2] as BodyType,
-                //     // this.flipperData()[0] as number
-                //     0
-                // );
-                // flipper.setAngularVelocity(-yourAngularVelocity);
-                // flipperL.setAngle((this.flipperData()[0] as number) * 4);
-                // flipperL.setAngle(this.flipperData()[0] as number);
-                // console.log(flipperL.angle.toString());
-                // console.log(
-                    //     "released left flipper, with angle: ",
-                //     flipperL.angle.toString()
-                // );
+                // this.matter.body.setStatic(flipperL, true);
+                this.printData(flipperL);
             });
-
-            rightKey.on("down", () => {
-                this.matter.body.setAngularVelocity(
-                    flipperR.body as BodyType,
-                    -flipperAngularVelocity
+            rightKey.on("up", () => {
+                this.matter.body.applyForce(
+                    flipperR,
+                    { x: -flipperR.bounds.max.x / 2, y: 0 },
+                    { x: 0, y: flipperAngularVelocity } 
                 );
-                // flipperR.setAngle((-this.flipperData()[0] as number) / 4);
-                // flipperR.setAngle(-this.flipperData()[2] as number);
-                // console.log(
-                //     "activated right flipper, with angle: ",
-                //     flipperR.angle.toString()
-                // );
+                // this.matter.body.setStatic(flipperR, true);
+                this.printData(flipperR);
             });
-            // rightKey.on("up", () => {
-            //     // flipperR.setAngle((-this.flipperData()[0] as number) * 4);
-            //     flipperR.setAngle(-this.flipperData()[0] as number);
-            //     console.log(
-            //         "released right flipper, with angle: ",
-            //         flipperR.angle.toString()
-            //     );
-            // });
         }
+    }
+
+    printData(body: BodyType) {
+        console.log("Last Properties of Flipper's Physics Body:");
+        console.log("Position:", body.bounds.max.x, body.bounds.max.y);
+        // console.log("Velocity:", body.velocity.x, body.velocity.y);
+        console.log("Angular Velocity:", body.angularVelocity);
     }
 
     update() {
@@ -212,8 +209,6 @@ export class Game extends Scene {
     }
 
     private createFlippers() {
-        // const flippersize: number[] = [120, 20]; //old variable for flipper size
-
         const data = this.flipperData();
 
         const flipperAngle = data[0] as number;
@@ -227,200 +222,324 @@ export class Game extends Scene {
         const maxAngle = 0; // Maximum angle (0 degrees in radians)
 
         const xLeft =
-            (this.game.config.width as number) / 2 - flipperWidth;
+            (this.game.config.width as number) / 2 - flipperWidth * 1.5;
         const yLeft =
-            (this.game.config.height as number) * (4 / 5) + flipperHeight;
-        // const flipperGroupLeft = this.add.group();
-        // const flipperL = this.add
-        //     .rectangle(
-        //         (this.game.config.width as number) / 2 - flipperWidth * 1.2,
-        //         (this.game.config.height as number) * (4 / 5) + flipperHeight,
-        //         flipperWidth * 2,
-        //         flipperHeight,
-        //         0xf9f9f9,
-        //         1
-        //     )
-        //     .setOrigin(0.5)
-        //     .setDepth(100);
-        // flipperL.setAngle(flipperAngle);
-        // flipperGroupLeft.add(flipperL);
+            (this.game.config.height as number) * (3.5 / 5) + flipperHeight / 2;
 
-        // const flipperLMatter = this.matter.add.rectangle(
-        //     (this.game.config.width as number) / 2 - flipperWidth * 1.2,
-        //     (this.game.config.height as number) * (4 / 5) + flipperHeight,
-        //     flipperWidth * 2,
-        //     flipperHeight,
-        //     {
-        //         isStatic: false,
-        //         // angle: flipperAngle,
-        //         render: {
-        //             fillColor: 0xbbaaff,
-        //         },
-        //     }
-        // );
+        const xRight =
+            (this.game.config.width as number) / 2 + flipperWidth * 1.5;
+        const yRight =
+            (this.game.config.height as number) * (3.5 / 5) + flipperHeight / 2;
 
-        // const flipperAnchorL = this.matter.add.rectangle(
-        //     (this.game.config.width as number) / 2 - flipperWidth * 1.2,
-        //     (this.game.config.height as number) * (4 / 5) + flipperHeight,
-        //     flipperHeight,
-        //     flipperHeight,
-        //     {
-        //         isStatic: false,
-        //         // angle: flipperAngle,
-        //         render: {
-        //             fillColor: 0xbbaaff,
-        //         },
-        //     }
-        // );
-
-        // Create flipper sprites
+        //gameObject from Phaser.io
+        const anchorX = xLeft;
+        const anchorY = yLeft;
         const flipperLeft = this.add.rectangle(
-            (this.game.config.width as number) / 2 - flipperWidth * 1.2,
-            (this.game.config.height as number) * (4 / 5) + flipperHeight,
-            flipperWidth, //*2 ,
+            anchorX - flipperWidth,
+            anchorY,
+            flipperWidth,
             flipperHeight,
             0xabcfff
         );
+        // flipperLeft.setAngle(flipperAngle);
+        //gameObject from Matter.js
+        const flipperL = this.matter.add.gameObject(flipperLeft, {
+            isStatic: false,
+            density: 10,
+            collisionFilter: {
+                category: this.collisionData()[2],
+                mask: this.collisionData()[5],
+            },
+        });
+        
+        // Create the anchor point
+        const anchorLeft = this.matter.add.circle(anchorX, anchorY, 15, {
+            isStatic: true,
+            collisionFilter: {
+                category: 0x0008,
+                mask: 0,
+            },
+            // angle: flipperAngle,
+        });
+        // Create the revolute constraint between the flipper and the anchor
+        this.matter.add.constraint(
+            flipperL.body as BodyType,
+            anchorLeft,
+            0,
+            1,
+            {
+                pointA: { x: -flipperWidth / 2, y: 0 },
+                pointB: {
+                    x: anchorLeft.circleRadius,
+                    y: anchorLeft.circleRadius,
+                },
+            }
+        );
+
+        
+        
+        //gameObject from Phaser.io
+        const anchorXRight = xRight;
+        const anchorYRight = yRight;
         const flipperRight = this.add.rectangle(
-            (this.game.config.width as number) / 2 + flipperWidth * 1.2,
-            (this.game.config.height as number) * (4 / 5) + flipperHeight,
+            anchorXRight - flipperWidth, ///2,
+            anchorYRight,
             flipperWidth,
             flipperHeight,
             0xffbcaf
         );
-
-        // Enable Matter.js physics for flipper sprites
-        const flipperL = this.matter.add.gameObject(flipperLeft, {
-            isStatic: false,
-        });
+        // flipperRight.setAngle(flipperAngle);
         const flipperR = this.matter.add.gameObject(flipperRight, {
             isStatic: false,
+            density: 10,
+            collisionFilter: {
+                category: this.collisionData()[2],
+                mask: this.collisionData()[5],
+            },
         });
-        // Create the anchor point
-        const anchorX = xLeft; // Adjust as needed
-        const anchorY = yLeft; // Adjust as needed
-        const anchor = this.matter.add.circle(anchorX, anchorY, 5, {
+        // Make the anchor point
+        const anchorRight = this.matter.add.circle(
+            anchorXRight,
+            anchorYRight,
+            15,
+            {
+                isStatic: true,
+                collisionFilter: {
+                    category: 0x0008,
+                    mask: 0,
+                },
+            }
+        );
+        const constr = this.matter.add.joint(
+            flipperR.body as BodyType,
+            anchorRight,
+            0,
+            1,
+            {
+                pointA: { x: flipperWidth / 2, y: 0 },
+                pointB: {
+                    x: -anchorRight.circleRadius,
+                    y: anchorRight.circleRadius,
+                },
+            }
+        );
+        // console.log("point stiffness: ", constr.stiffness);
+        // console.log("point length: ", constr.length);
+        // console.log("point A: ", constr.pointA);
+        // console.log("point B: ", constr.pointB);
+        
+        const verticesL = [
+            { x: 0, y: 0 }, // Vertex 1
+            { x: 0, y: 30 }, // Vertex 2
+            { x: 65, y: 30 }, // Vertex 3
+        ];
+        const flipSupportLeft = this.matter.add.fromVertices(
+            xLeft - 10,
+            yLeft + flipperHeight * 1.5,
+            [verticesL],
+            {
+                collisionFilter: {
+                    category: this.collisionData()[6],
+                    mask: this.collisionData()[7],
+                },
+                isStatic: true,
+                restitution: 0.5,
+    
+            },
+            true //flagInternal
+        );
+    
+        const verticesR = [
+            { x: 65, y: 0 }, // Vertex 1
+            { x: 0, y: 30 }, // Vertex 2
+            { x: 65, y: 30 }, // Vertex 3
+        ];
+        const flipSupportRight = this.matter.add.fromVertices(
+            xRight + 10,
+            yRight + flipperHeight * 1.5,
+            [verticesR],
+            {
+                collisionFilter: {
+                    category: this.collisionData()[6],
+                    mask: this.collisionData()[7],
+                },
+                isStatic: true,
+                restitution: 0.5,
+    
+            },
+            true //flagInternal
+        );
+
+        return [flipperL, flipperR];
+    }
+    generateMap() {
+        const edgeWidth = 20;
+        const screenWidth = this.game.config.width as number;
+        const screenLength = this.game.config.height as number;
+
+        const degrees45 = 45;
+        const radians45 = degrees45 * (Math.PI / 180);
+
+        const degrees65 = 65;
+        const radians65 = degrees65 * (Math.PI / 180);
+
+        const UIcolor = 0xeae8ea;
+        const UIcolor2 = 0xaea2ae;
+        const UIcolor3 = 0xbdb5bf;
+
+        //CREATE LEFT EDGE
+        const wallL = this.add.rectangle(
+            0 + edgeWidth / 2,
+            (this.game.config.height as number) * (2 / 4),
+            edgeWidth,
+            screenLength,
+            UIcolor
+        );
+        const wallLeft = this.matter.add.gameObject(wallL, {
+            isStatic: true,
+            collisionFilter: {
+                category: this.collisionData()[0],
+                mask: this.collisionData()[3],
+            },
+        });
+
+        //CREATE RIGHT EDGE
+        const wallR = this.add.rectangle(
+            screenWidth - edgeWidth / 2,
+            (this.game.config.height as number) * (2 / 4),
+            edgeWidth,
+            screenLength,
+            UIcolor
+        );
+        const wallRight = this.matter.add.gameObject(wallR, {
+            isStatic: true,
+            collisionFilter: {
+                category: this.collisionData()[0],
+                mask: this.collisionData()[3],
+            },
+        });
+
+        //CREATE BOTTOM EDGE
+        const part1 = this.add.rectangle(
+            screenWidth / 2,
+            (this.game.config.height as number) - screenLength * (0.5 / 8),
+            screenWidth,
+            screenLength * (2 / 8),
+            UIcolor
+        );
+        const part1Matter = this.matter.add.gameObject(part1, {
+            isStatic: true,
+            collisionFilter: {
+                category: this.collisionData()[0],
+                mask: this.collisionData()[3],
+            },
+        });
+
+        const wedgeCornerLeft = this.add.rectangle(
+            screenWidth * (7.5 / 10),
+            (this.game.config.height as number) * (7 / 8) - edgeWidth * 3.25,
+            // (this.game.config.height as number) - screenLength * (0.5 / 8),
+            edgeWidth * 4,
+            screenLength * (1.25 / 8),
+            UIcolor
+        );
+        const wedgeCornerLeftMatter = this.matter.add.gameObject(
+            wedgeCornerLeft,
+            {
+                isStatic: true,
+                collisionFilter: {
+                    category: this.collisionData()[0],
+                    mask: this.collisionData()[3],
+                },
+            }
+        );
+
+        const wedgeLeft = this.add.rectangle(
+            screenWidth * (1 / 10),
+            (this.game.config.height as number) * (7 / 8) - edgeWidth * 4.125,
+            // (this.game.config.height as number) - screenLength * (0.5 / 8),
+            edgeWidth * 8,
+            screenLength * (1.25 / 8),
+            UIcolor2
+        );
+        const wedgeLeftMatter = this.matter.add.gameObject(wedgeLeft, {
+            isStatic: true,
+            angle: -radians65,
+            collisionFilter: {
+                category: this.collisionData()[0],
+                mask: this.collisionData()[3],
+            },
+        });
+        const wedgeRight = this.add.rectangle(
+            screenWidth * (9 / 10),
+            (this.game.config.height as number) * (7 / 8) - edgeWidth * 4.125,
+            // (this.game.config.height as number) - screenLength * (0.5 / 8),
+            edgeWidth * 8,
+            screenLength * (1.25 / 8),
+            UIcolor2
+        );
+        const wedgeRightMatter = this.matter.add.gameObject(wedgeRight, {
+            isStatic: true,
+            angle: radians65,
+            collisionFilter: {
+                category: this.collisionData()[0],
+                mask: this.collisionData()[3],
+                
+            },
+        });
+
+        const wedgeCornerRight = this.add.rectangle(
+            screenWidth * (2.5 / 10),
+            (this.game.config.height as number) * (7 / 8) - edgeWidth * 2,
+            // (this.game.config.height as number) - screenLength * (0.5 / 8),
+            edgeWidth * 4,
+            screenLength * (1.25 / 8),
+            UIcolor
+        );
+        const wedgeCornerRightMatter = this.matter.add.gameObject(
+            wedgeCornerRight,
+            {
+                isStatic: true,
+                collisionFilter: {
+                    category: this.collisionData()[0],
+                    mask: this.collisionData()[3],
+                },
+            }
+        );
+
+        // throw new Error("Method not implemented.");
+    }
+    placeObstacles() {
+        const screenWidth = this.game.config.width as number;
+        const screenLength = this.game.config.height as number;
+
+        const UIcolor2 = 0xaea2ae;
+        const obstacleAngle = 55 * (Math.PI / 180);
+
+        const obstacble1 = this.add.rectangle(
+            screenWidth * (3 / 10),
+            (this.game.config.height as number) * (2 / 8) - 20 * 2,
+            // (this.game.config.height as number) - screenLength * (0.5 / 8),
+            20 * 1.25,
+            screenLength * (2 / 10),
+            UIcolor2
+        );
+        const obstacble1Matter = this.matter.add.gameObject(obstacble1, {
+            angle: -obstacleAngle,
             isStatic: true,
         });
-
-        // Create the revolute constraint between the flipper and the anchor
-        this.matter.add.constraint(anchor, flipperL.body as BodyType, 0, 0, {
-            pointA: { x: 0, y: 0 }, // Offset from the center of the flipper
-            pointB: { x: -flipperWidth / 2, y: 0 }, // Offset from the center of the anchor
-            stiffness: 0.1, // Adjust stiffness as needed
-            // angleA: maxAngle,
-            // angleB: minAngle
-            // angleB: flipperAngle
+        const obstacble2 = this.add.rectangle(
+            screenWidth * (7 / 10),
+            (this.game.config.height as number) * (4 / 8) - 20 * 2,
+            // (this.game.config.height as number) - screenLength * (0.5 / 8),
+            20 * 1.25,
+            screenLength * (2 / 10),
+            UIcolor2
+        );
+        const obstacble2Matter = this.matter.add.gameObject(obstacble2, {
+            angle: obstacleAngle,
+            isStatic: true,
         });
-
-
-        // const minAngleConstraint = this.matter.add.constraint(
-        //     anchor,
-        //     flipperL.body as BodyType,
-        //     0,
-        //     0,
-        //     {
-        //         pointA: { x: 0, y: 0 }, // Offset from the center of the flipper
-        //         pointB: { x: 0, y: 0 }, // Offset from the center of the anchor
-        //         angleA: minAngle,
-        //         angleB: minAngle,
-        //         stiffness: 0.1
-        //     }
-        // // );
-
-        // const maxAngleConstraint = this.matter.add.constraint(
-        //     anchor,
-        //     flipperL.body as BodyType,
-        //     0,
-        //     0,
-        //     {
-        //         pointA: { x: 0, y: 0 }, // Offset from the center of the flipper
-        //         pointB: { x: -flipperWidth / 2, y: 0 }, // Offset from the center of the anchor
-        //         angleA: maxAngle,
-        //         angleB: maxAngle,
-        //         stiffness: 0.1            }
-        // );
-        // Implement flipper movement
-        // Add event listeners for flipper controls (e.g., keyboard input)
-
-        // Similar event listeners for flipperRight
-
-        // this.matter.add.gameObject(flipperL);
-        // this.matter.add.gameObject(flipperL, flipperAnchorL);
-        // Create a Matter.js composite
-        // Create a Matter.js composite
-
-        // Create revolute constraint for flipperL to allow spinning
-        // const flipperPivotX = flipperL.position.x;
-        // const flipperPivotY = flipperL.position.y;
-        // const flipperPivot = { x: flipperPivotX, y: flipperPivotY };
-        // const revoluteConstraint = this.matter.add.constraint(
-        //     flipperL,
-        //     flipperL
-        // );
-
-        //flipper right
-        // const flipperR = this.add
-        //     .rectangle(
-        //         (this.game.config.width as number) / 2 + flipperWidth * 1.2,
-        //         (this.game.config.height as number) * (4 / 5) + flipperHeight,
-        //         flipperWidth * 2,
-        //         flipperHeight,
-        //         0x8dd020,
-        //         1
-        //     )
-        //     .setOrigin(0.5)
-        //     .setDepth(100);
-        // flipperR.setAngle(-flipperAngle);
-
-        // const flipperRMatter = this.matter.add.rectangle(
-        //     (this.game.config.width as number) / 2 - flipperWidth * 1.2,
-        //     (this.game.config.height as number) * (4 / 5) + flipperHeight,
-        //     flipperWidth * 2,
-        //     flipperHeight,
-        //     {
-        //         isStatic: false,
-        //         // angle: flipperAngle,
-        //         render: {
-        //             fillColor: 0xbbaaff,
-        //         },
-        //     }
-        // );
-        // const flipperAnchorR = this.matter.add.rectangle(
-        //     (this.game.config.width as number) / 2 - flipperWidth * 1.2,
-        //     (this.game.config.height as number) * (4 / 5) + flipperHeight,
-        //     flipperHeight,
-        //     flipperHeight,
-        //     {
-        //         isStatic: true,
-        //         // angle: flipperAngle,
-        //         render: {
-        //             fillColor: 0xbbaaff,
-        //         },
-        //     }
-        // );
-        // this.matter.add.gameObject(flipperR, flipperRMatter);
-        // this.matter.add.gameObject(flipperR, flipperAnchorR);
-
-        // Create horizontal constraint to prevent flipperL from falling off the screen
-        // const minX = flipperWidth / 2; // Minimum x-coordinate
-        // const maxX = (this.game.config.width as number) - flipperWidth / 2; // Maximum x-coordinate
-        // const horizontalConstraint = this.matter.add.constraint(
-        //     flipperL,
-        //     flipperRMatter,
-        //     0, // Keep the length fixed
-        //     1 // High stiffness to prevent movement along the horizontal axis
-        // );
-
-        // const flipper = this.matter.add.rectangle(
-        //     (this.game.config.width as number) / 2 - flipperWidth * (6 / 8),
-        //     (this.game.config.height as number) * (4 / 5) + flipperHeight,
-        //     flipperWidth + 10 * 1.2,
-        //     flipperHeight - 10 * 3,
-        //     { isStatic: true, angle: flipperAngle } // Options: make it static for the flipper
-        // );
-        // return [flipperL, flipperR, flipperLMatter, flipperRMatter];
-        return [flipperL, flipperR];
     }
 }
 

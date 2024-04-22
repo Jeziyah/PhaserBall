@@ -25,8 +25,9 @@ const config: Phaser.Types.Core.GameConfig = {
         default: 'matter',
         matter: {
             // Matter.js specific configuration options
-            gravity: { x: 0, y: 0.2 }, // Customize gravity
+            gravity: { x: 0, y: 0.3 }, // Customize gravity
             debug: true // Enable debug rendering
+            
         }
     },
     scene: [
